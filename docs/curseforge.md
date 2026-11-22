@@ -1,49 +1,39 @@
 # CurseForge page
 
-Text and settings for the Degoos Metrics project on CurseForge. Upload the JAR of a GitHub release, never a local
-build.
+What goes into the Degoos Metrics project on CurseForge. Upload the JAR from the GitHub release, not a local
+build. Logo: `docs/curseforge/logo.png`.
 
-- **Name:** Degoos Metrics
-- **Summary (short description):** Prometheus metrics for your Hytale server: players, tick times and memory, plus an
-  API for other plugins to add their own.
-- **Category:** Server utility (admin tools)
-- **License:** MIT
-- **Source:** https://github.com/Degoos-Team/degoos-metrics
-- **Issues:** https://github.com/Degoos-Team/degoos-metrics/issues
-- **Dependencies:** none
-- **Game version:** the Hytale server versions the release was tested on
+- Name: Degoos Metrics
+- Summary: Prometheus metrics for Hytale servers. Players, tick times, memory, and room for your own plugin's numbers.
+- Category: Server utility
+- License: MIT
+- Source: https://github.com/Degoos-Team/degoos-metrics
+- Issues: https://github.com/Degoos-Team/degoos-metrics/issues
 
 ## Description
 
-Degoos Metrics serves your Hytale server's numbers in the Prometheus format, so you can graph them in Grafana and get
-alerts when something goes wrong.
+The Degoos Team runs a handful of Hytale servers, and we got tired of finding out about lag from players. Degoos
+Metrics is what we wrote for it: a small plugin that exposes a `/metrics` page Prometheus can scrape, so everything
+can be graphed in Grafana.
 
-**What you get**
+Out of the box you get players (per server and per world), tick times per world, JVM memory and GC, and container
+memory if you're on Linux/Docker. It doesn't need any other plugin.
 
-- Players online, per server and per world
-- Tick target and tick times per world (average and longest of the last 10 seconds), to spot lag
-- JVM heap, buffer pools, threads and garbage collection time
-- Process and container memory (Linux) and uptime
+It won't open anything until you tell it to. After the first start, edit `mods/Degoos_Metrics/metrics.json`, pick a
+port and a token (32 characters or more) and restart:
 
-**Safe by default**
+```json
+{ "bind": "0.0.0.0", "port": 9520, "token": "put-a-long-random-string-here" }
+```
 
-- Nothing is served until you set a port and a token of at least 32 characters
-- Every request needs the token; everything else is refused
-- Collectors read snapshots and never touch a world thread, and a failing collector is skipped instead of breaking the
-  page
+Then add the server to Prometheus with that token as a bearer token. Please don't leave the port open to the
+internet. On the Degoos servers it's bound to a private Docker network, but a firewall rule does the job too.
 
-**For plugin authors**
+If you make plugins: you can add your own numbers to the same page (gauges, counters, summaries). There's a small
+bridge class that only uses Java types, so you can treat Degoos Metrics as optional and not compile against it at all.
+The README has the details and a copy-paste example.
 
-Register your own gauges, counters and summaries in the same page, with bounded labels so a bug can't flood your
-Prometheus. The `MetricsBridge` class takes JDK types only, so your plugin can use Degoos Metrics as an optional
-dependency without compiling against it. Per-instance worlds (one per match or dungeon) can share one `world` label.
+The GitHub repo also has the Pelican eggs the Degoos servers use for Prometheus and Grafana, and the Grafana dashboard for the server
+stats.
 
-**Setup**
-
-1. Put the JAR in `mods/` and start the server once.
-2. In `mods/Degoos_Metrics/metrics.json`, set `port` and `token`, then restart.
-3. Point Prometheus at `http://<server>:<port>/metrics` with the token as a bearer token. Keep the port off the public
-   internet.
-
-The repository also has Pelican eggs for Prometheus, Grafana and a Cloudflare Tunnel, and a Grafana dashboard
-generator with a ready network dashboard.
+Made by Gael Rial and Antonio Terrero (Degoos Team). Questions or bugs: GitHub issues.

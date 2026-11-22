@@ -1,3 +1,5 @@
+<img src="docs/curseforge/logo.png" alt="Degoos Metrics logo" width="120" align="right">
+
 # Degoos Metrics
 
 A small Hytale server plugin for every server of a network. It serves Prometheus metrics over HTTP (text format
