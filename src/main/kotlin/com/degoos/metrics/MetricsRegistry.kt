@@ -1,6 +1,7 @@
 package com.degoos.metrics
 
 import java.util.concurrent.ConcurrentHashMap
+import java.util.function.Supplier
 
 /**
  * The shared set of metrics, safe to use from any thread. Gauges and observed counters are callbacks evaluated at scrape
@@ -14,19 +15,21 @@ class MetricsRegistry(private val log: MetricsLog = NoLog) {
     private val warned = ConcurrentHashMap.newKeySet<String>()
 
     /** A value read at scrape time; [read] must be quick and must not block or wait for a world thread. */
-    fun gauge(name: String, help: String, labelNames: List<String>, owner: String = DEFAULT_OWNER, read: () -> List<Sample>) =
+    fun gauge(name: String, help: String, labelNames: List<String>, owner: String = DEFAULT_OWNER, read: Supplier<List<Sample>>) =
         register(owner, name, help, MetricType.GAUGE, labelNames) { sampled(name, labelNames, read) }
 
     /** A counter whose total is kept elsewhere (for example a GC count) and read at scrape time. */
-    fun observedCounter(name: String, help: String, labelNames: List<String>, owner: String = DEFAULT_OWNER, read: () -> List<Sample>) =
+    fun observedCounter(name: String, help: String, labelNames: List<String>, owner: String = DEFAULT_OWNER, read: Supplier<List<Sample>>) =
         register(owner, name, help, MetricType.COUNTER, labelNames) { sampled(name, labelNames, read) }
 
+    @JvmOverloads
     fun counter(name: String, help: String, labelNames: List<String> = emptyList(), owner: String = DEFAULT_OWNER): Counter {
         val counter = Counter(labelNames, log, name)
         register(owner, name, help, MetricType.COUNTER, labelNames) { counter.lines(name) }
         return counter
     }
 
+    @JvmOverloads
     fun summary(name: String, help: String, labelNames: List<String> = emptyList(), owner: String = DEFAULT_OWNER): Summary {
         val summary = Summary(labelNames, log, name)
         register(owner, name, help, MetricType.SUMMARY, labelNames) { summary.lines(name) }
@@ -39,7 +42,7 @@ class MetricsRegistry(private val log: MetricsLog = NoLog) {
     }
 
     /** Evaluates every metric. A failing one is logged once, skipped, and the rest are still returned. */
-    fun collect(): List<Family> = entries.values.sortedBy { it.name }.mapNotNull { entry ->
+    internal fun collect(): List<Family> = entries.values.sortedBy { it.name }.mapNotNull { entry ->
         try {
             Family(entry.name, entry.help, entry.type, entry.read())
         } catch (e: Throwable) {
@@ -68,9 +71,9 @@ class MetricsRegistry(private val log: MetricsLog = NoLog) {
     private fun clashes(candidate: String): Boolean =
         entries.values.any { namesOf(it.name, it.type).contains(candidate) }
 
-    private fun sampled(name: String, labelNames: List<String>, read: () -> List<Sample>): List<Line> {
+    private fun sampled(name: String, labelNames: List<String>, read: Supplier<List<Sample>>): List<Line> {
         val cap = LabelRules.MAX_SERIES_PER_METRIC
-        val samples = read()
+        val samples = read.get()
         val wellFormed = samples.filter { it.labelValues.size == labelNames.size && it.labelValues.all(LabelRules::isValidLabelValue) }
         val valid = wellFormed.distinctBy { it.labelValues }
         if (valid.size < wellFormed.size) warnOnce(name, "duplicate") { "Metric $name returned duplicate label sets; only the first of each is kept" }

@@ -40,7 +40,7 @@ object MetricsBridge {
     /** Groups worlds under one `world` label: world name in, group label out, or null to keep the world's own label. */
     @JvmStatic
     fun groupWorlds(owner: String, grouper: Function<String, String?>) {
-        SharedMetrics.worldGroups.set(owner) { grouper.apply(it) }
+        SharedMetrics.worldGroups.set(owner, grouper)
     }
 
     /** Removes the owner's metrics and world groupers; always safe. */

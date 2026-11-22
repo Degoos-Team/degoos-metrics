@@ -5,10 +5,10 @@ data class Sample(val labelValues: List<String>, val value: Double) {
     constructor(value: Double, vararg labelValues: String) : this(labelValues.toList(), value)
 }
 
-enum class MetricType(val text: String) { GAUGE("gauge"), COUNTER("counter"), SUMMARY("summary") }
+internal enum class MetricType(val text: String) { GAUGE("gauge"), COUNTER("counter"), SUMMARY("summary") }
 
 /** One output line: a (possibly suffixed) sample name, its labels in order, and the value. */
-data class Line(val name: String, val labels: List<Pair<String, String>>, val value: Double)
+internal data class Line(val name: String, val labels: List<Pair<String, String>>, val value: Double)
 
 /** A metric as rendered: header data plus its lines. */
-data class Family(val name: String, val help: String, val type: MetricType, val lines: List<Line>)
+internal data class Family(val name: String, val help: String, val type: MetricType, val lines: List<Line>)
