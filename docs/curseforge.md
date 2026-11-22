@@ -36,4 +36,4 @@ The README has the details and a copy-paste example.
 The GitHub repo also has the Pelican eggs the Degoos servers use for Prometheus and Grafana, and the Grafana dashboard for the server
 stats.
 
-Made by Gael Rial and Antonio Terrero (Degoos Team). Questions or bugs: GitHub issues.
+Made by the Degoos Team. Questions or bugs: GitHub issues.
