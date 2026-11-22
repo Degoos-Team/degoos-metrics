@@ -1,7 +1,7 @@
 package com.degoos.metrics
 
-import com.degoos.kayle.KotlinPlugin
 import com.degoos.metrics.collectors.GenericCollectors
+import com.hypixel.hytale.server.core.plugin.JavaPlugin
 import com.hypixel.hytale.server.core.plugin.JavaPluginInit
 
 /**
@@ -12,7 +12,7 @@ import com.hypixel.hytale.server.core.plugin.JavaPluginInit
  * this plugin; shutdown removes only this plugin's own (generic) collectors.
  */
 @Suppress("unused")
-class DegoosMetrics(init: JavaPluginInit) : KotlinPlugin(init) {
+class DegoosMetrics(init: JavaPluginInit) : JavaPlugin(init) {
     private val log = object : MetricsLog {
         override fun info(message: String) = logger.atInfo().log("[Degoos Metrics] %s", message)
         override fun warn(message: String) = logger.atWarning().log("[Degoos Metrics] %s", message)
@@ -56,9 +56,11 @@ class DegoosMetrics(init: JavaPluginInit) : KotlinPlugin(init) {
          * own owner string and call `registry.unregister(owner)` at shutdown; unregistering is always safe. When Metrics
          * is an optional dependency, wrap the first access in try/catch for `NoClassDefFoundError`.
          */
+        @JvmStatic
         val registry: MetricsRegistry get() = SharedMetrics.registry
 
         /** World-label groupers: many short-lived worlds (one per floor) can share one `world` label. Lives as long as [registry]. */
+        @JvmStatic
         val worldGroups: WorldGroups get() = SharedMetrics.worldGroups
     }
 }

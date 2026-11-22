@@ -4,24 +4,20 @@ plugins {
 }
 
 group = "com.degoos"
-version = "0.2.0"
+version = "0.3.0"
 
-val kayleVersion = "0.0.9"
 val hytaleInstallationPath = properties["hytale.path"].toString()
 val hytaleServerExecutablePath = "${hytaleInstallationPath}/Server/HytaleServer.jar"
 
 repositories {
     mavenCentral()
-    maven("https://dev.degoos.xyz/maven/repo")
 }
 
 dependencies {
     compileOnly(files(hytaleServerExecutablePath))
-    compileOnly("com.degoos:kayle:$kayleVersion")
 
     testImplementation(kotlin("test"))
     testImplementation(files(hytaleServerExecutablePath))
-    testImplementation("com.degoos:kayle:$kayleVersion")
 }
 
 kotlin {
@@ -43,10 +39,13 @@ tasks.shadowJar {
     archiveBaseName.set("DegoosMetrics")
     archiveClassifier.set("")
 
-    dependencies {
-        exclude(dependency("org.jetbrains.kotlin:.*"))
-        exclude(dependency("org.jetbrains.kotlinx:.*"))
-    }
+    // Standalone: the Kotlin standard library is bundled, trimmed to what is used and relocated, so it never clashes
+    // with another plugin's Kotlin (for example Kayle's). The public API uses JDK types only.
+    minimize()
+    relocate("kotlin", "com.degoos.metrics.lib.kotlin")
+    relocate("org.intellij.lang.annotations", "com.degoos.metrics.lib.annotations.intellij")
+    relocate("org.jetbrains.annotations", "com.degoos.metrics.lib.annotations.jetbrains")
+    exclude("META-INF/maven/**", "META-INF/*.kotlin_module", "META-INF/versions/**/module-info.class", "module-info.class")
 }
 
 tasks.named<ProcessResources>("processResources") {

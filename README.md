@@ -4,7 +4,8 @@ A small Hytale server plugin for every server of a network. It serves Prometheus
 0.0.4), scraped by a private Prometheus over the Docker bridge, and lets game plugins register
 their own metrics into the same page.
 
-- JDK `HttpServer` only: no runtime dependencies besides Kayle.
+- Standalone: no other plugin needed. It uses the JDK `HttpServer`, and the Kotlin standard library it is written with
+  is bundled and relocated, so it never clashes with another plugin's Kotlin.
 - `GET /metrics` with `Authorization: Bearer <token>`; everything else is refused (401 without the token, then 404 for
   other paths and 405 for other methods).
 - Collectors read thread-safe snapshots at scrape time and never hop onto a world thread. A collector that fails is
@@ -53,6 +54,11 @@ Worlds that share a label are merged:
 | `hytale_world_tick_seconds` `stat="avg"` | maximum of the averages (the busiest world) |
 | `hytale_world_tick_seconds` `stat="max"` | maximum |
 | `hytale_world_count` | number of loaded worlds with that label |
+
+## Install
+
+Put `DegoosMetrics-<version>.jar` in the server's `mods/` folder and start the server once. It writes the configuration
+below; set a port and a token, then restart. Keep the port off the public internet (see [Network setup](#network-setup)).
 
 ## Configuration
 
@@ -107,11 +113,12 @@ Declare an optional dependency in the game plugin's manifest:
 "OptionalDependencies": { "Degoos:Metrics": "*" }
 ```
 
-At start, when the plugin is loaded, register with an owner string (the plugin name) and the metric names carrying the
+The API uses JDK types only (from Kotlin, `java.util.function.Supplier` lambdas convert as usual). At start, when the
+plugin is loaded, register with an owner string (the plugin name) and the metric names carrying the
 plugin's prefix:
 
 ```kotlin
-val registry = DegoosMetrics.registry   // always available once the class is loaded
+val registry = DegoosMetrics.getRegistry()   // always available once the class is loaded
 val owner = "MyGame"
 
 // Gauge: the callback runs at scrape time on the HTTP thread. Keep it quick, read snapshots, never wait for a world.
@@ -150,7 +157,7 @@ plugin works without it:
 
 ```kotlin
 val metrics = try {
-    DegoosMetrics.registry
+    DegoosMetrics.getRegistry()
 } catch (e: NoClassDefFoundError) {
     null   // Degoos Metrics is not installed: skip every registration
 }
@@ -226,5 +233,5 @@ consumer from anywhere, for example `link?.matchesStarted?.accept(listOf("solo")
 ./gradlew test shadowJar
 ```
 
-The JAR is `build/libs/DegoosMetrics-0.2.0.jar`. It needs `hytale.path` in `~/.gradle/gradle.properties` and Kayle from
-`https://dev.degoos.xyz/maven/repo`. Tests run on Java 25 and need no Hytale runtime.
+The JAR is `build/libs/DegoosMetrics-<version>.jar`. It needs `hytale.path` in `~/.gradle/gradle.properties` (the folder
+that holds `Server/HytaleServer.jar`). Tests run on Java 25 and need no Hytale runtime.
