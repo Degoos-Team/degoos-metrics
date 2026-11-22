@@ -5,7 +5,11 @@
   "Description": "Serves Prometheus metrics over HTTP and lets game plugins register their own.",
   "Authors": [
     {
-      "Name": "Degoos Team"
+      "Name": "Gael Rial",
+      "Url": "https://grialc.com"
+    },
+    {
+      "Name": "Antonio Terrero"
     }
   ],
   "Website": "https://github.com/Degoos-Team/degoos-metrics",
