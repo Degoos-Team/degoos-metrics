@@ -1,0 +1,135 @@
+{
+    "_comment": "Built by degoos-metrics/pelican/eggs/build_eggs.py; edit the sources there.",
+    "meta": {
+        "version": "PLCN_v3",
+        "update_url": "https://raw.githubusercontent.com/Degoos-Team/degoos-metrics/main/pelican/eggs/egg-grafana.json"
+    },
+    "exported_at": "2026-11-21T00:00:00+00:00",
+    "name": "Grafana",
+    "author": "noreply@degoos.xyz",
+    "uuid": "541c4004-d509-5a52-9b87-272d1ebb0b54",
+    "description": "Grafana OSS (official release). Login only, no anonymous access or sign-up; the admin password is generated at install in admin-password.txt. Give it an allocation on the bridge IP; reach it by SSH tunnel or through a Cloudflare Tunnel with Cloudflare Access, which can also sign people in.",
+    "image": null,
+    "tags": [
+        "monitoring",
+        "grafana"
+    ],
+    "features": [],
+    "docker_images": {
+        "Debian": "ghcr.io/pelican-eggs/yolks:debian"
+    },
+    "file_denylist": [],
+    "startup_commands": {
+        "Default": "./grafana/bin/grafana server --homepath grafana --config grafana.ini"
+    },
+    "config": {
+        "files": "{}",
+        "startup": "{\"done\": \"HTTP Server Listen\"}",
+        "logs": "{}",
+        "stop": "^C"
+    },
+    "scripts": {
+        "installation": {
+            "script": "#!/bin/bash\n# Pelican install script for Grafana OSS: official release into /mnt/server/grafana, a locked-down grafana.ini,\n# a generated admin password and the Prometheus data source.\nset -euo pipefail\n\napt-get update -qq\napt-get install -y -qq curl ca-certificates tar >/dev/null\n\ncd /mnt/server\nVERSION=\"${GRAFANA_VERSION#v}\"\nARCH=\"$(uname -m | sed -e 's/x86_64/amd64/' -e 's/aarch64/arm64/')\"\nURL=\"https://dl.grafana.com/oss/release/grafana-${VERSION}.linux-${ARCH}.tar.gz\"\n\necho \"Downloading ${URL}\"\ncurl -fsSL -o grafana.tar.gz \"${URL}\"\ncurl -fsSL -o grafana.tar.gz.sha256 \"${URL}.sha256\"\necho \"$(cut -d' ' -f1 grafana.tar.gz.sha256)  grafana.tar.gz\" | sha256sum -c -\nrm -rf grafana\nmkdir grafana\ntar -xzf grafana.tar.gz --strip-components=1 -C grafana\nrm -f grafana.tar.gz grafana.tar.gz.sha256\nmkdir -p data logs plugins provisioning/datasources provisioning/dashboards provisioning/alerting dashboards\n\n# Signs sessions and encrypts stored secrets; generated once so it is never Grafana's public default.\n[ -f secret-key.txt ] || head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \\n' > secret-key.txt\nchmod 600 secret-key.txt\n# The admin password only matters on the first start, when Grafana creates the admin user, so it is generated with\n# the first grafana.ini only. Read it in the Pelican file manager, change it in Grafana, then delete the file and the\n# admin_password line; a reinstall never brings it back.\nif [ ! -f grafana.ini ]; then\n    head -c 24 /dev/urandom | od -An -tx1 | tr -d ' \\n' > admin-password.txt\n    chmod 600 admin-password.txt\nfi\n\n# Created once and never overwritten, so a reinstall (version upgrade) keeps local changes.\nif [ ! -f grafana.ini ]; then\ncat > grafana.ini <<'EOF'\n[paths]\ndata = /home/container/data\nlogs = /home/container/logs\nplugins = /home/container/plugins\nprovisioning = /home/container/provisioning\n\n[server]\nhttp_addr = 0.0.0.0\nhttp_port = ${SERVER_PORT}\nroot_url = ${GRAFANA_ROOT_URL}\n\n[security]\nadmin_user = admin\nadmin_password = $__file{/home/container/admin-password.txt}\nsecret_key = $__file{/home/container/secret-key.txt}\ndisable_gravatar = true\ncookie_samesite = strict\n\n[users]\nallow_sign_up = false\nallow_org_create = false\n\n[auth.anonymous]\nenabled = false\n\n[snapshots]\nexternal_enabled = false\n\n[analytics]\nreporting_enabled = false\ncheck_for_updates = false\ncheck_for_plugin_updates = false\n\n[news]\nnews_feed_enabled = false\n\n[plugins]\npreinstall_disabled = true\n\n# Single sign-on through Cloudflare Access (off unless CF_ACCESS_ENABLED=true): Grafana trusts the signed token\n# Access adds to every request, checked against the team's keys and this application's audience tag.\n[auth.jwt]\nenabled = ${CF_ACCESS_ENABLED}\nheader_name = Cf-Access-Jwt-Assertion\nemail_claim = email\nusername_claim = email\njwk_set_url = https://${CF_ACCESS_TEAM}.cloudflareaccess.com/cdn-cgi/access/certs\ncache_ttl = 60m\nexpect_claims = {\"aud\": \"${CF_ACCESS_AUD}\", \"iss\": \"https://${CF_ACCESS_TEAM}.cloudflareaccess.com\"}\nauto_sign_up = true\nallow_assign_grafana_admin = true\nrole_attribute_path = email == '${GRAFANA_ADMIN_EMAIL}' && 'GrafanaAdmin' || 'Viewer'\n\n[log]\nmode = console\nEOF\nfi\n\nif [ ! -f provisioning/datasources/prometheus.yml ]; then\ncat > provisioning/datasources/prometheus.yml <<'EOF'\napiVersion: 1\ndatasources:\n  - name: Prometheus\n    uid: prometheus\n    type: prometheus\n    access: proxy\n    url: ${PROMETHEUS_URL}\n    isDefault: true\n    editable: false\nEOF\nfi\n\nif [ ! -f provisioning/dashboards/files.yml ]; then\ncat > provisioning/dashboards/files.yml <<'EOF'\napiVersion: 1\nproviders:\n  - name: files\n    type: file\n    allowUiUpdates: true\n    options:\n      path: /home/container/dashboards\n      foldersFromFilesStructure: true\nEOF\nfi\n\necho \"Grafana ${VERSION} installed\"\n",
+            "container": "ghcr.io/pelican-eggs/installers:debian",
+            "entrypoint": "bash"
+        }
+    },
+    "variables": [
+        {
+            "name": "Grafana version",
+            "description": "Release to install; reinstall the server to change it (config and data are kept).",
+            "env_variable": "GRAFANA_VERSION",
+            "default_value": "13.3.1",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": [
+                "required",
+                "string",
+                "regex:/^v?\\d+\\.\\d+\\.\\d+$/"
+            ],
+            "sort": 1
+        },
+        {
+            "name": "Prometheus URL",
+            "description": "Address of the Prometheus server, as Grafana reaches it over the Docker bridge.",
+            "env_variable": "PROMETHEUS_URL",
+            "default_value": "http://172.18.0.1:9090",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": [
+                "required",
+                "url"
+            ],
+            "sort": 2
+        },
+        {
+            "name": "Root URL",
+            "description": "Address people open Grafana at, e.g. https://grafana.example.com/ behind Cloudflare Access.",
+            "env_variable": "GRAFANA_ROOT_URL",
+            "default_value": "http://localhost:3000/",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": [
+                "required",
+                "url"
+            ],
+            "sort": 3
+        },
+        {
+            "name": "Cloudflare Access login",
+            "description": "true signs people in with the Cloudflare Access token instead of a second Grafana login.",
+            "env_variable": "CF_ACCESS_ENABLED",
+            "default_value": "false",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": [
+                "required",
+                "string",
+                "in:true,false"
+            ],
+            "sort": 4
+        },
+        {
+            "name": "Cloudflare Access team",
+            "description": "Team name, the <team> in <team>.cloudflareaccess.com.",
+            "env_variable": "CF_ACCESS_TEAM",
+            "default_value": "",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": [
+                "nullable",
+                "string",
+                "regex:/^[a-z0-9-]*$/"
+            ],
+            "sort": 5
+        },
+        {
+            "name": "Cloudflare Access audience",
+            "description": "Application Audience (AUD) tag of the Access application in front of Grafana.",
+            "env_variable": "CF_ACCESS_AUD",
+            "default_value": "",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": [
+                "nullable",
+                "string",
+                "regex:/^[0-9a-f]*$/"
+            ],
+            "sort": 6
+        },
+        {
+            "name": "Admin email",
+            "description": "Access user who becomes Grafana server admin; every other Access user is a Viewer.",
+            "env_variable": "GRAFANA_ADMIN_EMAIL",
+            "default_value": "",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": [
+                "nullable",
+                "email"
+            ],
+            "sort": 7
+        }
+    ]
+}

@@ -1,0 +1,68 @@
+{
+    "_comment": "Built by degoos-metrics/pelican/eggs/build_eggs.py; edit the sources there.",
+    "meta": {
+        "version": "PLCN_v3",
+        "update_url": "https://raw.githubusercontent.com/Degoos-Team/degoos-metrics/main/pelican/eggs/egg-prometheus.json"
+    },
+    "exported_at": "2026-11-21T00:00:00+00:00",
+    "name": "Prometheus",
+    "author": "noreply@degoos.xyz",
+    "uuid": "41361fcd-d4dc-585a-b0c4-d7ce646f8e02",
+    "description": "Prometheus time-series database (official release binary). Scrapes the Degoos Metrics endpoints of the Hytale servers over the Docker bridge. Give it an allocation on the bridge IP, never a public one.",
+    "image": null,
+    "tags": [
+        "monitoring",
+        "prometheus"
+    ],
+    "features": [],
+    "docker_images": {
+        "Debian": "ghcr.io/pelican-eggs/yolks:debian"
+    },
+    "file_denylist": [],
+    "startup_commands": {
+        "Default": "./prometheus --config.file=prometheus.yml --storage.tsdb.path=data --storage.tsdb.retention.time={{RETENTION}} --web.listen-address=0.0.0.0:{{SERVER_PORT}}"
+    },
+    "config": {
+        "files": "{}",
+        "startup": "{\"done\": \"Server is ready to receive web requests.\"}",
+        "logs": "{}",
+        "stop": "^C"
+    },
+    "scripts": {
+        "installation": {
+            "script": "#!/bin/bash\n# Pelican install script for Prometheus: official release binary into /mnt/server, plus a starter config.\nset -euo pipefail\n\napt-get update -qq\napt-get install -y -qq curl ca-certificates tar >/dev/null\n\ncd /mnt/server\nVERSION=\"${PROMETHEUS_VERSION#v}\"\nARCH=\"$(uname -m | sed -e 's/x86_64/amd64/' -e 's/aarch64/arm64/')\"\nNAME=\"prometheus-${VERSION}.linux-${ARCH}\"\nURL=\"https://github.com/prometheus/prometheus/releases/download/v${VERSION}/${NAME}.tar.gz\"\n\necho \"Downloading ${URL}\"\ncurl -fsSL -o prometheus.tar.gz \"${URL}\"\ncurl -fsSL -o sha256sums.txt \"https://github.com/prometheus/prometheus/releases/download/v${VERSION}/sha256sums.txt\"\nEXPECTED=\"$(grep \" ${NAME}.tar.gz\\$\" sha256sums.txt | cut -d' ' -f1)\"\necho \"${EXPECTED}  prometheus.tar.gz\" | sha256sum -c -\ntar -xzf prometheus.tar.gz --strip-components=1 \"${NAME}/prometheus\" \"${NAME}/promtool\"\nrm -f prometheus.tar.gz sha256sums.txt\nchmod +x prometheus promtool\nmkdir -p data targets\n\n# The config is created once and never overwritten, so a reinstall (version upgrade) keeps the scrape jobs.\nif [ ! -f prometheus.yml ]; then\ncat > prometheus.yml <<'EOF'\n# Prometheus for the Hytale servers. Reload by restarting the server in Pelican.\nglobal:\n  scrape_interval: 15s\n  evaluation_interval: 15s\n\nscrape_configs:\n  # Self-scrape: the target port must match this server's own allocation (9090 by default); change it if the allocation differs.\n  - job_name: prometheus\n    static_configs:\n      - targets: [\"localhost:9090\"]\n\n  # Degoos Metrics on every Hytale server: one file per server in targets/, for example targets/survival.yml:\n  #   - targets: [\"172.18.0.1:9521\"]\n  #     labels: { server: survival }\n  # The bearer token is the same `token` as in each server's mods/Degoos_Metrics/metrics.json, kept in\n  # hytale-token.txt next to this file.\n  - job_name: hytale\n    metrics_path: /metrics\n    authorization:\n      type: Bearer\n      credentials_file: hytale-token.txt\n    file_sd_configs:\n      - files: [\"targets/*.yml\"]\nEOF\nfi\n[ -f hytale-token.txt ] || head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \\n' > hytale-token.txt\n\necho \"Prometheus ${VERSION} installed\"\n",
+            "container": "ghcr.io/pelican-eggs/installers:debian",
+            "entrypoint": "bash"
+        }
+    },
+    "variables": [
+        {
+            "name": "Prometheus version",
+            "description": "Release to install; reinstall the server to change it (config and data are kept).",
+            "env_variable": "PROMETHEUS_VERSION",
+            "default_value": "3.16.0",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": [
+                "required",
+                "string",
+                "regex:/^v?\\d+\\.\\d+\\.\\d+$/"
+            ],
+            "sort": 1
+        },
+        {
+            "name": "Retention",
+            "description": "How long samples are kept, e.g. 30d.",
+            "env_variable": "RETENTION",
+            "default_value": "30d",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": [
+                "required",
+                "string",
+                "regex:/^\\d+[dwy]$/"
+            ],
+            "sort": 2
+        }
+    ]
+}

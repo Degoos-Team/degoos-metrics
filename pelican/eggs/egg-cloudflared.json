@@ -1,0 +1,68 @@
+{
+    "_comment": "Built by degoos-metrics/pelican/eggs/build_eggs.py; edit the sources there.",
+    "meta": {
+        "version": "PLCN_v3",
+        "update_url": "https://raw.githubusercontent.com/Degoos-Team/degoos-metrics/main/pelican/eggs/egg-cloudflared.json"
+    },
+    "exported_at": "2026-11-21T00:00:00+00:00",
+    "name": "Cloudflare Tunnel",
+    "author": "noreply@degoos.xyz",
+    "uuid": "a4b54c46-f773-5c05-b6e4-43d77e1905c3",
+    "description": "cloudflared (official release) running a remotely managed Cloudflare Tunnel. It only connects out to Cloudflare, so it publishes private services such as Grafana behind Cloudflare Access without opening a port. The allocation only serves cloudflared's own metrics; give it one on the bridge IP.",
+    "image": null,
+    "tags": [
+        "networking",
+        "cloudflare"
+    ],
+    "features": [],
+    "docker_images": {
+        "Debian": "ghcr.io/pelican-eggs/yolks:debian"
+    },
+    "file_denylist": [],
+    "startup_commands": {
+        "Default": "./cloudflared tunnel --no-autoupdate --metrics 0.0.0.0:{{SERVER_PORT}} run"
+    },
+    "config": {
+        "files": "{}",
+        "startup": "{\"done\": \"Registered tunnel connection\"}",
+        "logs": "{}",
+        "stop": "^C"
+    },
+    "scripts": {
+        "installation": {
+            "script": "#!/bin/bash\n# Pelican install script for cloudflared: the official release binary into /mnt/server, checked against the SHA-256\n# digest GitHub publishes for the release asset.\nset -euo pipefail\n\napt-get update -qq\napt-get install -y -qq curl ca-certificates jq >/dev/null\n\ncd /mnt/server\nVERSION=\"${CLOUDFLARED_VERSION}\"\nARCH=\"$(uname -m | sed -e 's/x86_64/amd64/' -e 's/aarch64/arm64/')\"\nASSET=\"cloudflared-linux-${ARCH}\"\nRELEASE=\"https://api.github.com/repos/cloudflare/cloudflared/releases/tags/${VERSION}\"\n\nEXPECTED=\"$(curl -fsSL \"${RELEASE}\" | jq -r --arg a \"${ASSET}\" '.assets[] | select(.name == $a) | .digest' | sed 's/^sha256://')\"\nif [ -z \"${EXPECTED}\" ] || [ \"${EXPECTED}\" = \"null\" ]; then\n    echo \"No SHA-256 digest published for ${ASSET} ${VERSION}\" >&2\n    exit 1\nfi\n\nURL=\"https://github.com/cloudflare/cloudflared/releases/download/${VERSION}/${ASSET}\"\necho \"Downloading ${URL}\"\ncurl -fsSL -o cloudflared.new \"${URL}\"\necho \"${EXPECTED}  cloudflared.new\" | sha256sum -c -\nmv cloudflared.new cloudflared\nchmod +x cloudflared\n\necho \"cloudflared ${VERSION} installed\"\n",
+            "container": "ghcr.io/pelican-eggs/installers:debian",
+            "entrypoint": "bash"
+        }
+    },
+    "variables": [
+        {
+            "name": "cloudflared version",
+            "description": "Release to install; reinstall the server to change it.",
+            "env_variable": "CLOUDFLARED_VERSION",
+            "default_value": "2026.11.1",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": [
+                "required",
+                "string",
+                "regex:/^\\d{4}\\.\\d+\\.\\d+$/"
+            ],
+            "sort": 1
+        },
+        {
+            "name": "Tunnel token",
+            "description": "Token of the remotely managed tunnel (Cloudflare Zero Trust, Networks, Tunnels). Secret.",
+            "env_variable": "TUNNEL_TOKEN",
+            "default_value": "",
+            "user_viewable": false,
+            "user_editable": true,
+            "rules": [
+                "required",
+                "string",
+                "min:32"
+            ],
+            "sort": 2
+        }
+    ]
+}

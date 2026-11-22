@@ -1,0 +1,20 @@
+{
+  "Group": "Degoos",
+  "Name": "Metrics",
+  "Version": "${plugin_version}",
+  "Description": "Serves Prometheus metrics over HTTP and lets game plugins register their own.",
+  "Authors": [
+    {
+      "Name": "Degoos Team"
+    }
+  ],
+  "Website": "",
+  "Main": "com.degoos.metrics.DegoosMetrics",
+  "ServerVersion": "*",
+  "Dependencies": {
+    "Degoos:Kayle": "*"
+  },
+  "OptionalDependencies": {},
+  "DisabledByDefault": false,
+  "IncludesAssetPack": false
+}
